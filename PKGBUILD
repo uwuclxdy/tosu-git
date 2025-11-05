@@ -16,12 +16,14 @@ conflicts=("${pkgname%-git}")
 replaces=()
 backup=()
 options=('!strip')
-install=
+install=notice.install
 changelog=
 source=("git+https://github.com/tosuapp/tosu.git"
-        "tosu-bin.sh::https://aur.archlinux.org/cgit/aur.git/plain/tosu-bin.sh?h=tosu")
+        "tosu-bin.sh::https://aur.archlinux.org/cgit/aur.git/plain/tosu-bin.sh?h=tosu"
+        "notice.install")
 sha256sums=('SKIP'
-            '16e77f6a192094be77ce1ecc9322e7296b57532851672d15f07bc82132cdfc21')
+            '16e77f6a192094be77ce1ecc9322e7296b57532851672d15f07bc82132cdfc21'
+            'SKIP')
 validpgpkeys=()
 
 pkgver() {
