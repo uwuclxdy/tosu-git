@@ -2,49 +2,42 @@
 # Maintainer: Mikhail Babynichev <i@kotrik.ru>
 # Contributor: Mikhail Babynichev <i@kotrik.ru>
 
-_pkgbase=tosu
-
-pkgname=${_pkgbase}-git
-pkgver=4.15.3.r0.gb326e47
+pkgname=tosu-git
+pkgver=r1390.9bfee4f
 pkgrel=1
-pkgdesc="Memory reader and PP counters provider for osu! and osu! Lazer - git version"
+pkgdesc="Memory reader and PP counters provider for osu! and osu! Lazer"
 arch=('x86_64')
 url="https://github.com/tosuapp/tosu"
 license=('LGPL3')
-groups=()
 depends=()
-makedepends=('git' 'npm' 'pnpm' 'nodejs>=20' 'python' 'gcc')
-provides=("${_pkgbase}")
-conflicts=("${_pkgbase}")
-options=("!strip")
-install=notice.install
-source=("${_pkgbase}::git+${url}.git"
-        "tosu-bin.sh::https://aur.archlinux.org/cgit/aur.git/plain/tosu-bin.sh?h=tosu"
-        "notice.install")
+makedepends=('git' 'pnpm' 'nodejs>=20' 'python')
+provides=("${pkgname%-git}")
+conflicts=("${pkgname%-git}")
+replaces=()
+backup=()
+options=('!strip')
+install=
+changelog=
+source=("git+https://github.com/tosuapp/tosu.git"
+        "tosu-bin.sh::https://aur.archlinux.org/cgit/aur.git/plain/tosu-bin.sh?h=tosu")
 sha256sums=('SKIP'
-            'ada3abbdb7bd09dea02e8149a63dc3a730bd300186ac3a136d624acaaa9d225f'
-            'ce227974fc8151bb7c45361c8ba1db539d56e0729998f8087825fae13dcb0f16')
+            '16e77f6a192094be77ce1ecc9322e7296b57532851672d15f07bc82132cdfc21')
+validpgpkeys=()
 
 pkgver() {
-    cd "${_pkgbase}"
-    git describe --long --tags | sed 's/^v//;s/_/./;s/\([^-]*-g\)/r\1/;s/-/./g'
-}
-
-prepare() {
-    cd "${_pkgbase}"
-    export MAKEFLAGS=""
+    cd "${srcdir}/${pkgname%-git}"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
-    cd "${_pkgbase}"
-    export MAKEFLAGS=""
+    cd "${srcdir}/${pkgname%-git}"
     export CXXFLAGS="${CXXFLAGS} -Wno-error=format-security"
     pnpm install --frozen-lockfile
     pnpm run build:linux
 }
 
 package() {
-    cd "${_pkgbase}"
+    cd "${srcdir}/${pkgname%-git}"
     install -Dm755 "packages/tosu/dist/tosu" "${pkgdir}/opt/tosu/tosu"
     install -d -m777 "${pkgdir}/opt/tosu"
     install -Dm755 "${srcdir}/tosu-bin.sh" "${pkgdir}/usr/bin/tosu"
