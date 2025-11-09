@@ -10,7 +10,7 @@ arch=('x86_64')
 url="https://github.com/tosuapp/tosu"
 license=('LGPL3')
 depends=()
-makedepends=('git' 'pnpm' 'nodejs>=20' 'python')
+makedepends=('git' 'npm' 'pnpm' 'nodejs>=20' 'python')
 provides=("${pkgname%-git}")
 conflicts=("${pkgname%-git}")
 replaces=()
@@ -31,8 +31,14 @@ pkgver() {
     printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
+prepare() {
+    cd "${srcdir}/${pkgname%-git}"
+    export MAKEFLAGS=""
+}
+
 build() {
     cd "${srcdir}/${pkgname%-git}"
+    export MAKEFLAGS=""
     export CXXFLAGS="${CXXFLAGS} -Wno-error=format-security"
     pnpm install --frozen-lockfile
     pnpm run build:linux
