@@ -34,7 +34,7 @@ jobs:
 
       - name: Commit changes
         if: ${{ env.pkgbuild != '' }}
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           file_pattern: '*/PKGBUILD */.SRCINFO'
           commit_message: 'chore: update checksums and .SRCINFO'
