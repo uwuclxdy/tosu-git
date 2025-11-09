@@ -53,12 +53,29 @@ jobs:
       - name: Update checksums and .SRCINFO
         if: steps.check.outputs.needs_update == 'true'
         run: |
-          docker run --rm -v "$GITHUB_WORKSPACE:/pkg" archlinux:latest bash -c "
-            pacman -Syu --noconfirm base-devel git
+          docker run --rm -v "$GITHUB_WORKSPACE:/pkg" archlinux:latest bash -c '
+            set -e
+          
+            # Update system and install dependencies
+            pacman -Syu --noconfirm base-devel git pacman-contrib
+          
+            # Create non-root user for makepkg
+            useradd -m -G wheel builduser
+            echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          
+            # Give builduser ownership of the package directory
+            chown -R builduser:builduser /pkg
+          
+            # Switch to builduser and update package files
             cd /pkg
-            updpkgsums || true
-            makepkg --printsrcinfo > .SRCINFO
-          "
+            sudo -u builduser bash -c "
+              updpkgsums
+              makepkg --printsrcinfo > .SRCINFO
+            "
+          '
+          
+          # Fix permissions for GitHub Actions
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
       - name: Commit and push
         if: steps.check.outputs.needs_update == 'true'
