@@ -1,0 +1,27 @@
+name: Publish to AUR
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Find updated package
+        run: |
+          echo "pkgbuild=$(git diff --name-only HEAD~1 HEAD "*PKGBUILD" | head -1 | xargs dirname)" >> $GITHUB_ENV
+
+      - name: Publish to AUR
+        if: ${{ env.pkgbuild != '' }}
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
+        with:
+          pkgname: ${{ env.pkgbuild }}
+          pkgbuild: ${{ env.pkgbuild }}/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update from upstream commit ${{ github.sha }}"
