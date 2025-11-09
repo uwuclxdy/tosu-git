@@ -1,40 +1,78 @@
 name: Update Package
 on:
-  pull_request:
-    types: [opened, synchronize]
-    branches: [main]
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Arch Linux
+      - name: Check upstream for updates
+        id: check
         run: |
-          pacman -Syu --noconfirm base-devel git
+          UPSTREAM_REPO="https://github.com/tosuapp/tosu"
+          
+          git clone --bare "$UPSTREAM_REPO" /tmp/upstream
+          cd /tmp/upstream
+          
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          NEW_PKGVER="r${COMMIT_COUNT}.${SHORT_HASH}"
+          
+          echo "new_pkgver=$NEW_PKGVER" >> $GITHUB_OUTPUT
+          
+          cd $GITHUB_WORKSPACE/tosu-git
+          CURRENT_PKGVER=$(grep "^pkgver=" PKGBUILD | cut -d'=' -f2)
+          echo "current_pkgver=$CURRENT_PKGVER" >> $GITHUB_OUTPUT
+          
+          if [ "$NEW_PKGVER" != "$CURRENT_PKGVER" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "🆕 Update needed: $CURRENT_PKGVER → $NEW_PKGVER"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ Already up to date: $CURRENT_PKGVER"
+          fi
 
-      - name: Find updated package
+      - name: Update PKGBUILD
+        if: steps.check.outputs.needs_update == 'true'
         run: |
-          echo "pkgbuild=$(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} "*PKGBUILD" | head -1 | xargs dirname)" >> $GITHUB_ENV
+          cd tosu-git
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.check.outputs.new_pkgver }}/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
 
       - name: Update checksums and .SRCINFO
-        if: ${{ env.pkgbuild != '' }}
+        if: steps.check.outputs.needs_update == 'true'
         run: |
-          cd "${{ env.pkgbuild }}"
-          updpkgsums
-          makepkg --printsrcinfo > .SRCINFO
+          docker run --rm -v "$PWD/tosu-git:/pkg" archlinux:latest bash -c "
+            pacman -Syu --noconfirm base-devel git
+            cd /pkg
+            updpkgsums || true
+            makepkg --printsrcinfo > .SRCINFO
+          "
 
-      - name: Commit changes
-        if: ${{ env.pkgbuild != '' }}
-        uses: stefanzweifel/git-auto-commit-action@v5
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tosu-git/PKGBUILD tosu-git/.SRCINFO
+          git commit -m "Update to ${{ steps.check.outputs.new_pkgver }}"
+          git push
+
+      - name: Publish to AUR
+        if: steps.check.outputs.needs_update == 'true'
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.0
         with:
-          file_pattern: '*/PKGBUILD */.SRCINFO'
-          commit_message: 'chore: update checksums and .SRCINFO'
+          pkgname: tosu-git
+          pkgbuild: ./tosu-git/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.check.outputs.new_pkgver }}"
